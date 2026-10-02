@@ -1,0 +1,140 @@
+<html>
+<head>
+    <title>Employee System</title>
+    <link rel="stylesheet" href="Design.css">
+</head>
+
+<body>
+
+<div class="layout">
+
+    <div class="sidebar">
+        <h2>Employee<br>System</h2>
+
+        <a class="active">Dashboard</a>
+        <a href="employee.html">Employees</a>
+        <a>Attendance</a>
+        <a>Salary</a>   
+
+        <br><br><br><br><br><br><br><br>
+
+        <a>Settings</a>
+        <a>Logout</a>
+    </div>
+
+    <div class="main">
+
+        <div class="top">
+            <input type="text" id="Search" placeholder="Search employee">
+            <span>Admin</span>
+        </div>
+
+        <h1>Dashboard</h1>
+        <p>Welcome back, Admin!</p>
+
+        <div class="cards">
+
+            <div class="card green">
+                <p>Total Employees</p>
+                <h2 id="Total">0</h2>
+            </div>
+
+            <div class="card blue">
+                <p>Present Today</p>
+                <h2 id="Present">0</h2>
+            </div>
+
+            <div class="card orange">
+                <p>Absent Today</p>
+                <h2 id="Absent">0</h2>
+            </div>
+
+            <div class="card purple">
+                <p>Total Salary (This Month)</p>
+                <h2 id="Salary">₱ 0</h2>
+            </div>
+
+        </div>
+
+        <h3>Attendance Today</h3>
+
+        <table border="1" cellpadding="10">
+            <tr>
+                <th>Employee Name</th>
+                <th>Department</th>
+                <th>Status</th>
+                <th>Time-in</th>
+            </tr>
+
+            <tbody id="EmployeeTable"></tbody>
+        </table>
+
+    </div>
+</div>
+
+<script>
+    var savedData = localStorage.getItem("employees_db");
+
+    if (savedData == null) {
+        var employees = [];
+    } else {
+        var employees = JSON.parse(savedData);
+    }
+
+    function DisplayEmployees(data) {
+        var table = "";
+        var present = 0;
+        var absent = 0;
+        var salary = 0;
+
+        for (var i = 0; i < data.length; i++) {
+
+            if (data[i].Status == "Present") {
+                present++;
+            }
+
+            if (data[i].Status == "Absent") {
+                absent++;
+            }
+
+            salary += Number(data[i].Salary);
+
+            table += "<tr>";
+            table += "<td>" + data[i].Name + "</td>";
+            table += "<td>" + data[i].Department + "</td>";
+            table += "<td>" + data[i].Status + "</td>";
+            table += "<td>" + data[i].TimeIn + "</td>";
+            table += "</tr>";
+        }
+
+        document.getElementById("EmployeeTable").innerHTML = table;
+        document.getElementById("Total").innerHTML = data.length;
+        document.getElementById("Present").innerHTML = present;
+        document.getElementById("Absent").innerHTML = absent;
+        document.getElementById("Salary").innerHTML =
+            "₱ " + salary.toLocaleString("en-PH");
+    }
+
+    // Display employee records
+    DisplayEmployees(employees);
+
+    // Search employee
+    document.getElementById("Search").oninput = function() {
+        var search = this.value.toLowerCase();
+        var result = [];
+
+        for (var i = 0; i < employees.length; i++) {
+            if (
+                employees[i].Name.toLowerCase().includes(search) ||
+                employees[i].Department.toLowerCase().includes(search)
+            ) {
+                result.push(employees[i]);
+            }
+        }
+
+        DisplayEmployees(result);
+    };
+</script>
+
+</body>
+</html>
