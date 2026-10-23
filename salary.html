@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Employee System - Salary</title>
+    <link rel="stylesheet" href="Design.css">
+</head>
+<body>
+<div class="layout">
+    <div class="sidebar">
+        <h2>Employee Management<br>System</h2>
+        <a href="Homepage.html">Dashboard</a>
+        <a href="employee.html">Employees</a>
+        <a href="attendance.html">Attendance</a>
+        <a class="active" href="salary.html">Salary</a>
+        <br><br><br><br><br><br><br><br>
+        <a href="login.html" id="Logout">Logout</a>
+    </div>
+
+    <div class="main">
+        <div class="top">
+            <h2>Salary Management</h2>
+            <span>Admin</span>
+        </div>
+
+        <div class="salary-content">
+
+            <div class="salary-box">
+                <h3>Salary Settings</h3>
+                <div class="salary-form">
+                    <div>
+                        <label>Rate Per Sack (₱)</label>
+                        <input type="number" id="SackRate"
+                            min="0" step="0.01" value="25">
+                    </div>
+                    <button class="salary-btn" onclick="SaveRate()">
+                        Save Rate
+                    </button>
+                </div>
+            </div>
+
+            <div class="salary-box">
+                <h3>Daily Sack Entry</h3>
+                <div class="salary-form">
+                    <div>
+                        <label>Date</label>
+                        <input type="date" id="WorkDate">
+                    </div>
+                    <div>
+                        <label>Employee</label>
+                        <select id="SackEmployee">
+                            <option value="">Select Employee</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Number of Sacks</label>
+                        <input type="number" id="SackCount"
+                            min="0" step="1" placeholder="Enter sacks">
+                    </div>
+                    <button class="salary-btn" id="SackSaveButton"
+                        onclick="SaveSacks()">Save Record</button>
+                    <button class="salary-btn delete-btn" id="CancelEdit"
+                        onclick="CancelSackEdit()" hidden>Cancel Edit</button>
+                </div>
+                <p id="EmployeeMessage"></p>
+            </div>
+
+            <div class="salary-box">
+                <h3>Daily Sack Records</h3>
+                <div class="table-container">
+                    <table class="salary-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Employee ID</th>
+                                <th>Employee Name</th>
+                                <th>Department</th>
+                                <th>Sacks</th>
+                                <th>Daily Earnings</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="SackTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="salary-box">
+                <h3>Weekly Payroll</h3>
+                <div class="salary-form">
+                    <div>
+                        <label>Select Week</label>
+                        <input type="week" id="Week">
+                    </div>
+                    <div>
+                        <label>Search Employee</label>
+                        <input type="text" id="SearchEmployee"
+                            placeholder="Search name or ID"
+                            oninput="DisplaySalary()">
+                    </div>
+                </div>
+
+                <p>You can mark salaries as Paid anytime.</p>
+
+                <div class="summary">
+                    <div class="summary-card">
+                        <p>Total Weekly Salary</p>
+                        <h2 id="TotalSalary">₱0.00</h2>
+                    </div>
+                    <div class="summary-card">
+                        <p>Paid</p>
+                        <h2 id="PaidSalary">₱0.00</h2>
+                    </div>
+                    <div class="summary-card">
+                        <p>Unpaid</p>
+                        <h2 id="UnpaidSalary">₱0.00</h2>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="salary-table">
+                        <thead>
+                            <tr>
+                                <th>Employee ID</th>
+                                <th>Name</th>
+                                <th>Department</th>
+                                <th>Total Sacks</th>
+                                <th>Rate Per Sack</th>
+                                <th>Weekly Salary</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="SalaryTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="salary-box">
+                <h3>Salary Payment History</h3>
+                <div class="table-container">
+                    <table class="salary-table">
+                        <thead>
+                            <tr>
+                                <th>Week</th>
+                                <th>Employee ID</th>
+                                <th>Name</th>
+                                <th>Total Sacks</th>
+                                <th>Amount Paid</th>
+                                <th>Date Paid</th>
+                            </tr>
+                        </thead>
+                        <tbody id="HistoryTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+var $ = function(id) {
+    return document.getElementById(id);
+};
+
+function read(key, fallback) {
+    try {
+        var data = JSON.parse(localStorage.getItem(key));
+        return data == null ? fallback : data;
+    } catch (error) {
+        return fallback;
+    }
+}
+
+function save(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+}
+
+var employees = [];
+var sacks = {};
+var salaryHistory = {};
+var settings = { SackRate: 25 };
+var editingSack = null;
+
+function idOf(employee) {
+    return String(
+        employee.Id || employee.EmployeeID || employee.id || ""
+    );
+}
+
+function nameOf(employee) {
+    return employee.Name || employee.EmployeeName ||
+        employee.name || "";
+}
+
+function deptOf(employee) {
+    return employee.Department || employee.department || "-";
+}
+
+function money(amount) {
+    return "₱" + Number(amount || 0).toLocaleString("en-PH", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+function escapeHTML(value) {
+    return String(value == null ? "" : value).replace(
+        /[&<>"']/g,
+        function(character) {
+            return {
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;"
+            }[character];
+        }
+    );
+}
+
+// FIX: safely embeds a value inside an onclick="..." attribute
+function arg(value) {
+    return escapeHTML(JSON.stringify(value));
+}
+
+function currentWeek() {
+    var date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + 3 -
+        (date.getDay() + 6) % 7);
+
+    var year = date.getFullYear();
+    var jan4 = new Date(year, 0, 4);
+
+    jan4.setDate(jan4.getDate() -
+        (jan4.getDay() + 6) % 7);
+
+    var week = 1 + Math.round(
+        (date - jan4) / 604800000
+    );
+
+    return year + "-W" + String(week).padStart(2, "0");
+}
+
+function weekDates(value) {
+    if (!value) return [];
+
+    var parts = value.split("-W").map(Number);
+    var year = parts[0];
+    var week = parts[1];
+    var monday = new Date(year, 0, 4);
+
+    monday.setDate(monday.getDate() -
+        (monday.getDay() + 6) % 7 + (week - 1) * 7);
+
+    return Array.from({ length: 7 }, function(_, index) {
+        var date = new Date(monday);
+        date.setDate(monday.getDate() + index);
+
+        return date.getFullYear() + "-" +
+            String(date.getMonth() + 1).padStart(2, "0") + "-" +
+            String(date.getDate()).padStart(2, "0");
+    });
+}
+
+function loadData() {
+    employees = read("employees_db", []);
+    sacks = read("sack_records", {});
+    salaryHistory = read("salary_history", {});
+    settings = Object.assign(
+        { SackRate: 25 },
+        read("salary_settings", {})
+    );
+
+    $("SackRate").value = settings.SackRate;
+
+    var select = $("SackEmployee");
+    var previous = select.value;
+
+    select.innerHTML =
+        '<option value="">Select Employee</option>';
+
+    employees.forEach(function(employee) {
+        var id = idOf(employee);
+        var name = nameOf(employee);
+
+        if (!id || !name) return;
+
+        var option = document.createElement("option");
+        option.value = id;
+        option.textContent = id + " - " + name;
+        select.appendChild(option);
+    });
+
+    select.value = previous;
+
+    $("EmployeeMessage").textContent = employees.length
+        ? "Employees loaded: " + employees.length
+        : "No employees found. Add employees in the Employees section.";
+}
+
+function paymentFor(week, id) {
+    return salaryHistory[week] &&
+        salaryHistory[week][id];
+}
+
+function isPaidDate(date, id) {
+    return Object.keys(salaryHistory).some(function(week) {
+        var payment = paymentFor(week, id);
+
+        return payment &&
+            payment.Status === "Paid" &&
+            weekDates(week).includes(date);
+    });
+}
+
+function SaveRate() {
+    var value = $("SackRate").value;
+    var rate = Number(value);
+
+    if (value === "" || !Number.isFinite(rate) || rate < 0) {
+        alert("Enter a valid rate per sack.");
+        return;
+    }
+
+    settings.SackRate = rate;
+    save("salary_settings", settings);
+
+    DisplaySackRecords();
+    DisplaySalary();
+
+    alert("Rate saved successfully.");
+}
+
+function SaveSacks() {
+    var date = $("WorkDate").value;
+    var id = $("SackEmployee").value;
+    var value = $("SackCount").value;
+    var count = Number(value);
+
+    if (!date || !id || value === "") {
+        alert("Enter the date, employee, and number of sacks.");
+        return;
+    }
+
+    if (!Number.isInteger(count) || count < 0) {
+        alert("Sacks must be a whole number of zero or more.");
+        return;
+    }
+
+    var employee = employees.find(function(item) {
+        return idOf(item) === id;
+    });
+
+    if (!employee) {
+        alert("Employee not found. Refresh the page.");
+        return;
+    }
+
+    if (isPaidDate(date, id)) {
+        alert("This employee's salary for that week is already paid.");
+        return;
+    }
+
+    if (editingSack && isPaidDate(editingSack.date, editingSack.id)) {
+        alert("This record belongs to an already-paid week.");
+        return;
+    }
+
+    if (!editingSack && sacks[date] && sacks[date][id]) {
+        if (!confirm("A record already exists for this employee and date. Replace it?")) {
+            return;
+        }
+    }
+
+    if (editingSack) {
+        var oldDate = editingSack.date;
+        var oldId = editingSack.id;
+
+        if (oldDate !== date || oldId !== id) {
+            if (sacks[date] && sacks[date][id]) {
+                if (!confirm("A record already exists for the new date and employee. Replace it?")) {
+                    return;
+                }
+            }
+
+            if (sacks[oldDate]) {
+                delete sacks[oldDate][oldId];
+
+                if (!Object.keys(sacks[oldDate]).length) {
+                    delete sacks[oldDate];
+                }
+            }
+        }
+    }
+
+    if (!sacks[date]) sacks[date] = {};
+
+    sacks[date][id] = {
+        Sacks: count,
+        Name: nameOf(employee),
+        Department: deptOf(employee)
+    };
+
+    save("sack_records", sacks);
+
+    CancelSackEdit();
+    DisplaySackRecords();
+    DisplaySalary();
+
+    alert("Sack record saved successfully.");
+}
+
+function EditSacks(date, id) {
+    sacks = read("sack_records", {});
+    salaryHistory = read("salary_history", {});
+
+    if (!sacks[date] || !sacks[date][id]) {
+        alert("Record not found. Refresh the page.");
+        return;
+    }
+
+    if (isPaidDate(date, id)) {
+        alert("Cannot edit a record from an already-paid week.");
+        return;
+    }
+
+    editingSack = { date: date, id: id };
+
+    $("WorkDate").value = date;
+    $("SackEmployee").value = id;
+    $("SackCount").value = sacks[date][id].Sacks;
+
+    $("SackSaveButton").textContent = "Update Record";
+    $("CancelEdit").hidden = false;
+
+    $("WorkDate").scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+    });
+
+    $("WorkDate").focus();
+}
+
+function CancelSackEdit() {
+    editingSack = null;
+
+    $("SackCount").value = "";
+    $("SackSaveButton").textContent = "Save Record";
+    $("CancelEdit").hidden = true;
+}
+
+function DeleteSacks(date, id) {
+    sacks = read("sack_records", {});
+    salaryHistory = read("salary_history", {});
+
+    if (!sacks[date] || !sacks[date][id]) {
+        alert("Record not found.");
+        return;
+    }
+
+    if (isPaidDate(date, id)) {
+        alert("Cannot delete a record from an already-paid week.");
+        return;
+    }
+
+    if (!confirm("Delete this sack record?")) return;
+
+    delete sacks[date][id];
+
+    if (!Object.keys(sacks[date]).length) {
+        delete sacks[date];
+    }
+
+    save("sack_records", sacks);
+
+    if (editingSack &&
+        editingSack.date === date &&
+        editingSack.id === id) {
+        CancelSackEdit();
+    }
+
+    DisplaySackRecords();
+    DisplaySalary();
+}
+
+function weeklySacks(id, week) {
+    return weekDates(week).reduce(function(total, date) {
+        var record = sacks[date] && sacks[date][id];
+
+        return total + (Number(record && record.Sacks) || 0);
+    }, 0);
+}
+
+function DisplaySackRecords() {
+    sacks = read("sack_records", {});
+    salaryHistory = read("salary_history", {});
+
+    var rows = [];
+
+    Object.keys(sacks).sort().reverse().forEach(function(date) {
+        Object.keys(sacks[date]).forEach(function(id) {
+            if (isPaidDate(date, id)) return;
+
+            var record = sacks[date][id];
+            var employee = employees.find(function(item) {
+                return idOf(item) === id;
+            });
+
+            var name = employee
+                ? nameOf(employee)
+                : record.Name || "Unknown";
+
+            var department = employee
+                ? deptOf(employee)
+                : record.Department || "-";
+
+            var count = Number(record.Sacks) || 0;
+
+            rows.push("<tr>" +
+                "<td>" + escapeHTML(date) + "</td>" +
+                "<td>" + escapeHTML(id) + "</td>" +
+                "<td>" + escapeHTML(name) + "</td>" +
+                "<td>" + escapeHTML(department) + "</td>" +
+                "<td>" + count + "</td>" +
+                "<td>" + money(count * settings.SackRate) + "</td>" +
+                "<td>" +
+                '<button class="salary-btn" onclick="EditSacks(' +
+                    arg(date) + "," + arg(id) +
+                    ')">Edit</button> ' +
+                '<button class="salary-btn delete-btn" onclick="DeleteSacks(' +
+                    arg(date) + "," + arg(id) +
+                    ')">Delete</button>' +
+                "</td></tr>");
+        });
+    });
+
+    $("SackTable").innerHTML = rows.join("") ||
+        '<tr><td colspan="7">No unpaid sack records found.</td></tr>';
+}
+
+function MarkPaid(id) {
+    loadData();
+
+    var week = $("Week").value;
+
+    if (!week) {
+        alert("Please select a week first.");
+        return;
+    }
+
+    if (paymentFor(week, id) &&
+        paymentFor(week, id).Status === "Paid") {
+        alert("This salary is already paid.");
+        return;
+    }
+
+    var totalSacks = weeklySacks(id, week);
+
+    if (totalSacks <= 0) {
+        alert("This employee has no sacks recorded for the selected week.");
+        return;
+    }
+
+    var employee = employees.find(function(item) {
+        return idOf(item) === id;
+    });
+
+    var rate = Number(settings.SackRate) || 0;
+    var amount = totalSacks * rate;
+
+    if (!confirm("Mark " + money(amount) + " as paid?")) {
+        return;
+    }
+
+    var today = new Date();
+    var datePaid = today.getFullYear() + "-" +
+        String(today.getMonth() + 1).padStart(2, "0") + "-" +
+        String(today.getDate()).padStart(2, "0");
+
+    if (!salaryHistory[week]) {
+        salaryHistory[week] = {};
+    }
+
+    salaryHistory[week][id] = {
+        Name: employee ? nameOf(employee) : id,
+        Department: employee ? deptOf(employee) : "-",
+        TotalSacks: totalSacks,
+        RatePerSack: rate,
+        Amount: amount,
+        DatePaid: datePaid,
+        Status: "Paid"
+    };
+
+    save("salary_history", salaryHistory);
+
+    RefreshTables();
+
+    alert("Salary successfully marked as Paid!");
+}
+
+function UndoPayment(id) {
+    salaryHistory = read("salary_history", {});
+
+    var week = $("Week").value;
+    var payment = paymentFor(week, id);
+
+    if (!payment || payment.Status !== "Paid") {
+        alert("Payment record not found.");
+        return;
+    }
+
+    if (!confirm("Undo this payment record? The salary will become unpaid again.")) {
+        return;
+    }
+
+    delete salaryHistory[week][id];
+
+    if (!Object.keys(salaryHistory[week]).length) {
+        delete salaryHistory[week];
+    }
+
+    save("salary_history", salaryHistory);
+
+    RefreshTables();
+
+    alert("Payment undone. Salary is now unpaid.");
+}
+
+function DisplaySalary() {
+    var week = $("Week").value;
+    var search = $("SearchEmployee").value.toLowerCase();
+
+    var total = 0;
+    var paid = 0;
+    var unpaid = 0;
+    var rows = [];
+
+    employees.forEach(function(employee) {
+        var id = idOf(employee);
+        var name = nameOf(employee);
+        var department = deptOf(employee);
+
+        if (!id || !name ||
+            !(id + " " + name + " " + department)
+                .toLowerCase().includes(search)) {
+            return;
+        }
+
+        var payment = paymentFor(week, id);
+        var isPaid = payment && payment.Status === "Paid";
+
+        var count = isPaid
+            ? Number(payment.TotalSacks) || 0
+            : weeklySacks(id, week);
+
+        var rate = isPaid
+            ? Number(payment.RatePerSack) || 0
+            : Number(settings.SackRate) || 0;
+
+        var amount = isPaid
+            ? Number(payment.Amount) || 0
+            : count * rate;
+
+        total += amount;
+
+        if (isPaid) {
+            paid += amount;
+        } else {
+            unpaid += amount;
+        }
+
+        var action = isPaid
+            ? '<button class="salary-btn delete-btn" onclick="UndoPayment(' +
+                arg(id) + ')">Undo</button>'
+            : '<button class="salary-btn pay-button" onclick="MarkPaid(' +
+                arg(id) + ')">Mark Paid</button>';
+
+        rows.push("<tr>" +
+            "<td>" + escapeHTML(id) + "</td>" +
+            "<td>" + escapeHTML(name) + "</td>" +
+            "<td>" + escapeHTML(department) + "</td>" +
+            "<td>" + count + "</td>" +
+            "<td>" + money(rate) + "</td>" +
+            "<td>" + money(amount) + "</td>" +
+            '<td class="' + (isPaid ? "status-paid" : "status-unpaid") +
+                '">' + (isPaid ? "Paid" : "Unpaid") + "</td>" +
+            "<td>" + action + "</td></tr>");
+    });
+
+    $("SalaryTable").innerHTML = rows.join("") ||
+        '<tr><td colspan="8">No employees found. Add employees in the Employees section.</td></tr>';
+
+    $("TotalSalary").textContent = money(total);
+    $("PaidSalary").textContent = money(paid);
+    $("UnpaidSalary").textContent = money(unpaid);
+}
+
+function DisplayHistory() {
+    salaryHistory = read("salary_history", {});
+
+    var rows = [];
+
+    Object.keys(salaryHistory).sort().reverse().forEach(function(week) {
+        Object.keys(salaryHistory[week]).forEach(function(id) {
+            var record = salaryHistory[week][id];
+
+            rows.push("<tr>" +
+                "<td>" + escapeHTML(week) + "</td>" +
+                "<td>" + escapeHTML(id) + "</td>" +
+                "<td>" + escapeHTML(record.Name || id) + "</td>" +
+                "<td>" + (Number(record.TotalSacks) || 0) + "</td>" +
+                "<td>" + money(record.Amount) + "</td>" +
+                "<td>" + escapeHTML(record.DatePaid || "-") + "</td>" +
+                "</tr>");
+        });
+    });
+
+    $("HistoryTable").innerHTML = rows.join("") ||
+        '<tr><td colspan="6">No payment history yet.</td></tr>';
+}
+
+function RefreshTables() {
+    loadData();
+    DisplaySackRecords();
+    DisplaySalary();
+    DisplayHistory();
+}
+
+function Refresh() {
+    var todayWeek = currentWeek();
+    var lastWeek = localStorage.getItem("salary_last_opened_week");
+    var selectedWeek = localStorage.getItem("salary_selected_week");
+
+    $("Week").value =
+        lastWeek === todayWeek && selectedWeek
+            ? selectedWeek
+            : todayWeek;
+
+    localStorage.setItem("salary_last_opened_week", todayWeek);
+    localStorage.setItem("salary_selected_week", $("Week").value);
+
+    RefreshTables();
+}
+
+$("Week").addEventListener("change", function() {
+    localStorage.setItem("salary_selected_week", $("Week").value);
+    DisplaySalary();
+});
+
+var today = new Date();
+
+$("WorkDate").value = today.getFullYear() + "-" +
+    String(today.getMonth() + 1).padStart(2, "0") + "-" +
+    String(today.getDate()).padStart(2, "0");
+
+$("Logout").addEventListener("click", function(event) {
+    if (!confirm("Are you sure you want to logout?")) {
+        event.preventDefault();
+    }
+});
+
+Refresh();
+
+window.addEventListener("pageshow", Refresh);
+
+window.addEventListener("storage", function(event) {
+    if ([
+        "employees_db",
+        "sack_records",
+        "salary_history",
+        "salary_settings"
+    ].includes(event.key)) {
+        RefreshTables();
+    }
+});
+</script>
+</body>
+</html>
